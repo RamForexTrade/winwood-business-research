@@ -79,7 +79,7 @@ def main():
             go_to_stage("upload")
     
     # Add company footer
-    from utils.winwood_styling import render_winwood_footer
+    from utils.layout import render_winwood_footer
     render_winwood_footer()
 
 
