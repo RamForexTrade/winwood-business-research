@@ -72,9 +72,23 @@ class CloudAppState:
 CLOUD_STATE_KEY = "cloud_app_state"
 
 
+def ensure_session_state_initialized():
+    """Ensure all required session state keys are initialized."""
+    # Initialize cloud_sessions if not exists
+    if not hasattr(st.session_state, 'cloud_sessions'):
+        st.session_state.cloud_sessions = {}
+    
+    # Initialize other required keys
+    if not hasattr(st.session_state, 'session_start_time'):
+        st.session_state.session_start_time = datetime.now().isoformat()
+
+
 def initialize_cloud_state() -> None:
     """Initialize cloud-optimized application state."""
     try:
+        # Ensure all required session state keys exist
+        ensure_session_state_initialized()
+        
         if CLOUD_STATE_KEY not in st.session_state:
             # Create new cloud state
             state = CloudAppState()
@@ -87,6 +101,7 @@ def initialize_cloud_state() -> None:
     except Exception as e:
         logger.error(f"Error initializing cloud state: {e}")
         # Fallback: Create minimal state
+        ensure_session_state_initialized()
         st.session_state[CLOUD_STATE_KEY] = CloudAppState()
 
 
@@ -120,6 +135,9 @@ def update_cloud_state(**kwargs) -> None:
 def store_dataframe_in_cloud(df: pd.DataFrame, name: str = "main_data") -> bool:
     """Store dataframe using simple session state."""
     try:
+        # Ensure session state is initialized
+        ensure_session_state_initialized()
+        
         # Simple storage in session state for Railway deployment
         st.session_state[f'dataframe_{name}'] = df
         
@@ -142,6 +160,7 @@ def store_dataframe_in_cloud(df: pd.DataFrame, name: str = "main_data") -> bool:
 def load_dataframe_from_cloud(name: str = "main_data") -> Optional[pd.DataFrame]:
     """Load dataframe from simple session state."""
     try:
+        ensure_session_state_initialized()
         return st.session_state.get(f'dataframe_{name}')
     except Exception as e:
         logger.error(f"Error loading dataframe: {e}")
