@@ -9,7 +9,7 @@ import pandas as pd
 import os
 import logging
 from typing import Optional, Dict, Any
-import tempfile
+from io import BytesIO
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
