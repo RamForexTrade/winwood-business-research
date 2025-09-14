@@ -20,14 +20,18 @@ class CloudSessionManager:
     """Simplified cloud session manager for Railway deployment."""
     
     def __init__(self):
-        # Use in-memory storage only
+        # Initialize cloud_sessions in session state if not exists
+        self._ensure_cloud_sessions_initialized()
+        logger.info("Cloud Session Manager initialized")
+    
+    def _ensure_cloud_sessions_initialized(self):
+        """Ensure cloud_sessions is properly initialized in session state."""
         if 'cloud_sessions' not in st.session_state:
             st.session_state.cloud_sessions = {}
-        
-        logger.info("Cloud Session Manager initialized")
     
     def create_session(self, session_id: str) -> str:
         """Create a new session."""
+        self._ensure_cloud_sessions_initialized()
         st.session_state.cloud_sessions[session_id] = {
             'created_at': st.session_state.get('session_start_time', 'unknown'),
             'data': {},
@@ -39,6 +43,7 @@ class CloudSessionManager:
     def store_dataframe(self, session_id: str, df: pd.DataFrame, name: str) -> bool:
         """Store dataframe in session."""
         try:
+            self._ensure_cloud_sessions_initialized()
             if session_id not in st.session_state.cloud_sessions:
                 self.create_session(session_id)
             
@@ -53,6 +58,7 @@ class CloudSessionManager:
     def load_dataframe(self, session_id: str, name: str) -> Optional[pd.DataFrame]:
         """Load dataframe from session."""
         try:
+            self._ensure_cloud_sessions_initialized()
             if session_id in st.session_state.cloud_sessions:
                 return st.session_state.cloud_sessions[session_id]['data'].get(name)
             return None
@@ -63,6 +69,7 @@ class CloudSessionManager:
     def store_session_metadata(self, session_id: str, metadata: Dict[str, Any]) -> bool:
         """Store session metadata."""
         try:
+            self._ensure_cloud_sessions_initialized()
             if session_id not in st.session_state.cloud_sessions:
                 self.create_session(session_id)
             
@@ -89,6 +96,7 @@ class CloudSessionManager:
     def cleanup_session(self, session_id: str) -> bool:
         """Cleanup session data."""
         try:
+            self._ensure_cloud_sessions_initialized()
             if session_id in st.session_state.cloud_sessions:
                 del st.session_state.cloud_sessions[session_id]
             return True
@@ -98,6 +106,7 @@ class CloudSessionManager:
     
     def get_session_stats(self) -> Dict[str, Any]:
         """Get session statistics."""
+        self._ensure_cloud_sessions_initialized()
         return {
             'active_sessions': len(st.session_state.get('cloud_sessions', {})),
             'total_data_objects': sum(len(session.get('data', {})) for session in st.session_state.get('cloud_sessions', {}).values())
@@ -105,6 +114,7 @@ class CloudSessionManager:
     
     def force_cleanup_all(self) -> None:
         """Force cleanup all sessions."""
+        self._ensure_cloud_sessions_initialized()
         st.session_state.cloud_sessions = {}
         logger.info("All sessions cleaned up")
 
