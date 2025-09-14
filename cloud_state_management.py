@@ -13,9 +13,6 @@ import json
 from datetime import datetime
 import logging
 
-# Import cloud session manager
-from services.cloud_session_manager import get_cloud_session_manager
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -69,39 +66,6 @@ class CloudAppState:
     # Cloud-specific settings
     memory_limit_mb: float = 100.0  # Memory limit for this session
     auto_cleanup: bool = True
-    
-    def to_dict(self) -> dict:
-        """Convert state to dictionary for persistence."""
-        return {
-            'session_id': self.session_id,
-            'session_created': self.session_created,
-            'last_updated': self.last_updated,
-            'cloud_mode': self.cloud_mode,
-            'current_stage': self.current_stage,
-            'stage_progress': self.stage_progress,
-            'uploaded_filename': self.uploaded_filename,
-            'data_loaded': self.data_loaded,
-            'data_size_mb': self.data_size_mb,
-            'data_rows': self.data_rows,
-            'data_columns': self.data_columns,
-            'filters_applied': self.filters_applied,
-            'primary_filter_column': self.primary_filter_column,
-            'primary_filter_values': self.primary_filter_values,
-            'secondary_filter_column': self.secondary_filter_column,
-            'secondary_filter_values': self.secondary_filter_values,
-            'analysis_complete': self.analysis_complete,
-            'results_generated': self.results_generated,
-            'email_config': self.email_config,
-            'emails_sent': self.emails_sent,
-            'show_debug': self.show_debug,
-            'memory_limit_mb': self.memory_limit_mb,
-            'auto_cleanup': self.auto_cleanup
-        }
-    
-    @classmethod
-    def from_dict(cls, data: dict) -> 'CloudAppState':
-        """Create state from dictionary."""
-        return cls(**data)
 
 
 # Global state key
@@ -110,23 +74,20 @@ CLOUD_STATE_KEY = "cloud_app_state"
 
 def initialize_cloud_state() -> None:
     """Initialize cloud-optimized application state."""
-    if CLOUD_STATE_KEY not in st.session_state:
-        # Create new cloud state
-        state = CloudAppState()
-        st.session_state[CLOUD_STATE_KEY] = state
-        
-        # Initialize cloud session manager
-        cloud_manager = get_cloud_session_manager()
-        session_id = cloud_manager.create_session(state.session_id)
-        
-        # Store initial state metadata
-        cloud_manager.store_session_metadata(session_id, state.to_dict())
-        
-        logger.info(f"Initialized cloud state with session: {session_id}")
-    else:
-        # Update timestamp for existing state
-        state = st.session_state[CLOUD_STATE_KEY]
-        state.last_updated = datetime.now().isoformat()
+    try:
+        if CLOUD_STATE_KEY not in st.session_state:
+            # Create new cloud state
+            state = CloudAppState()
+            st.session_state[CLOUD_STATE_KEY] = state
+            logger.info(f"Initialized cloud state with session: {state.session_id}")
+        else:
+            # Update timestamp for existing state
+            state = st.session_state[CLOUD_STATE_KEY]
+            state.last_updated = datetime.now().isoformat()
+    except Exception as e:
+        logger.error(f"Error initializing cloud state: {e}")
+        # Fallback: Create minimal state
+        st.session_state[CLOUD_STATE_KEY] = CloudAppState()
 
 
 def get_cloud_state() -> CloudAppState:
@@ -135,6 +96,76 @@ def get_cloud_state() -> CloudAppState:
         initialize_cloud_state()
     
     return st.session_state[CLOUD_STATE_KEY]
+
+
+def update_cloud_state(**kwargs) -> None:
+    """Update cloud application state with new values."""
+    try:
+        state = get_cloud_state()
+        
+        # Update state attributes
+        for key, value in kwargs.items():
+            if hasattr(state, key):
+                setattr(state, key, value)
+            else:
+                logger.warning(f"Attempted to set unknown state attribute: {key}")
+        
+        # Update timestamp
+        state.last_updated = datetime.now().isoformat()
+        
+    except Exception as e:
+        logger.error(f"Error updating cloud state: {e}")
+
+
+def store_dataframe_in_cloud(df: pd.DataFrame, name: str = "main_data") -> bool:
+    """Store dataframe using simple session state."""
+    try:
+        # Simple storage in session state for Railway deployment
+        st.session_state[f'dataframe_{name}'] = df
+        
+        # Update state metadata
+        size_mb = df.memory_usage(deep=True).sum() / (1024 * 1024)
+        update_cloud_state(
+            data_loaded=True,
+            data_size_mb=round(size_mb, 2),
+            data_rows=len(df),
+            data_columns=len(df.columns)
+        )
+        logger.info(f"Stored dataframe '{name}' ({size_mb:.1f}MB) in session state")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error storing dataframe: {e}")
+        return False
+
+
+def load_dataframe_from_cloud(name: str = "main_data") -> Optional[pd.DataFrame]:
+    """Load dataframe from simple session state."""
+    try:
+        return st.session_state.get(f'dataframe_{name}')
+    except Exception as e:
+        logger.error(f"Error loading dataframe: {e}")
+        return None
+
+
+def get_main_dataframe() -> Optional[pd.DataFrame]:
+    """Get the main dataframe from storage."""
+    return load_dataframe_from_cloud("main_data")
+
+
+def set_main_dataframe(df: pd.DataFrame) -> bool:
+    """Set the main dataframe in storage."""
+    return store_dataframe_in_cloud(df, "main_data")
+
+
+def get_filtered_dataframe() -> Optional[pd.DataFrame]:
+    """Get the filtered dataframe from storage."""
+    return load_dataframe_from_cloud("filtered_data")
+
+
+def set_filtered_dataframe(df: pd.DataFrame) -> bool:
+    """Set the filtered dataframe in storage."""
+    return store_dataframe_in_cloud(df, "filtered_data")
 
 
 # Backward compatibility functions
@@ -146,6 +177,11 @@ def initialize_state() -> None:
 def get_state() -> CloudAppState:
     """Backward compatibility wrapper."""
     return get_cloud_state()
+
+
+def update_state(**kwargs) -> None:
+    """Backward compatibility wrapper."""
+    update_cloud_state(**kwargs)
 
 
 # Simplified version for Railway deployment without heavy dependencies
