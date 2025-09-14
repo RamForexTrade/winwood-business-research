@@ -15,8 +15,15 @@ xlsxwriter>=3.1.0
 # Visualization Dependencies
 plotly>=5.15.0
 
+# Search and Web Scraping
+tavily-python>=0.5.0
+
 # Cloud Deployment Optimizations
 psutil>=5.9.0
 
-# Optional: For advanced features (can be removed if not needed)
-# tavily-python>=0.5.0
+# AI/ML Dependencies for Groq
+groq>=0.4.0
+
+# Additional dependencies for business research
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
